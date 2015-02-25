@@ -1,0 +1,51 @@
+#include <itpp/itcomm.h>
+#include <iostream>
+#include <unistd.h>
+using namespace itpp;
+using namespace std;
+//These lines are needed for use of cout and endl
+using std::cout;
+using std::endl;
+
+int difference(int a, int b)
+{
+	int c = a ^ b;
+	int temp = 0;
+	for(int i = 0; i < 32; i++)
+	{
+		if(c % 2)
+			temp++;
+		c = c >> 1;
+	}
+	return temp;
+}
+
+int main()
+{
+	FILE* f1;
+	FILE* f2;
+	f1 = fopen ("data.amr", "rb");
+	f2 = fopen ("data1.amr", "rb");
+	int i1, i2, t1, t2;
+	i1 = fread((char*) &t1, 1, sizeof(int), f1);
+	i2 = fread((char*) &t2, 1, sizeof(int), f2);
+	int count = 0;
+	while(i1 && i2)
+	{
+		if(t1 != t2)
+			count = count + difference(t1, t2);
+		if(i1 < 4 || i2 < 4)
+		{
+			cout << endl << "count: " << count << endl;
+			fclose(f1);
+			fclose(f2);
+			return 0;
+		}
+		i1 = fread((char*) &t1, 1, sizeof(int), f1);
+		i2 = fread((char*) &t2, 1, sizeof(int), f2);
+	}
+	fclose(f1);
+	fclose(f2);
+	cout << endl << "count: " << count << endl;
+	return 0;
+}
