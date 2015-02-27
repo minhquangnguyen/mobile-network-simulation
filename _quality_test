@@ -1,0 +1,316 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <iostream>
+#include <sys/types.h>
+#include <dirent.h>
+#include <errno.h>
+#include <vector>
+#include <string>
+#include <string.h>
+#include <fstream>
+#include <memory.h>
+#include <itpp/itcomm.h>
+#include <bitset>
+
+
+using namespace itpp;
+using namespace std;
+using std::cout;
+using std::endl;
+int getdir (string dir, vector<string> &files, bool b);
+int difference(int a, int b);
+int difference_byte(int a, int b);
+int compare_files(const char* s_file1, const char* s_file2);
+int _compare_files(const char* s_file1, const char* s_file2);
+void write_file(bvec &bv, const char* s);
+int read_file(bvec &bv, const char* s);
+int bvec2int(bvec &bv, int pos, bool is_smaller);
+
+ofstream _f;
+
+int getdir (string dir, vector<string> &files, bool b)
+{
+    DIR *dp;
+    struct dirent *dirp;
+    string temp;
+    if((dp  = opendir(dir.c_str())) == NULL) {
+        cout << "Error(" << errno << ") opening " << dir << endl;
+        return errno;
+    }
+
+    while ((dirp = readdir(dp)) != NULL) {
+    	if(b)
+	    	temp = dir + string(dirp->d_name);
+	    else
+	    	temp = string(dirp->d_name);
+        files.push_back(temp);
+    }
+    closedir(dp);
+    return 0;
+}
+
+int bvec2int(bvec &bv, int pos, bool is_smaller)
+{
+	int ret = 0;
+	int a[] = {0x00000001, 0x00000002, 0x00000004, 0x00000008, 0x00000010, 0x00000020, 0x00000040, 0x00000080, 0x00000100, 	0x00000200, 0x00000400, 0x00000800, 0x00001000, 0x00002000, 0x00004000, 0x00008000, 0x00010000, 0x00020000, 0x00040000, 	0x00080000, 0x00100000, 0x00200000, 0x00400000, 0x00800000, 0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000, 	0x20000000, 0x40000000, 0x80000000};
+	if(is_smaller)
+	{
+		for(int i = pos; i < pos + 32; i++)
+		{
+			//cout << bv[i] << " ";
+			if(bv[i] == 1)
+				ret = ret | a[31 - i + pos];
+		}
+	}
+	else
+	{
+		for(int i = pos; i < bv.length(); i++)
+		{
+			//cout << bv[i] << " ";
+			if(bv[i] == 1)
+			{
+				ret = ret | a[31 - i + pos];
+				
+			}
+		}
+		ret = ret >> (32 - bv.length() + pos);
+		//cout << "ret 1: " << ret << endl; 
+	}
+	//cout << endl;
+	//cout << "c = " << (bitset<32>) ret << endl; 
+	return ret;
+}
+
+void write_file(bvec &bv, const char* s)
+{
+	ofstream f1;
+	f1.open(s, ios::binary);
+	
+	int vector_length = bv.length();
+	int int_length = vector_length / 32;
+	//cout << bv << endl;
+	//cout << int_length << endl;
+	for(int j = 0; j < int_length; j++)
+	{
+		int t = bvec2int(bv, j * 32, true);
+		//cout << "1. " << t << endl;
+		f1.write((char *)&t, sizeof(int));
+	}
+	
+	if(vector_length % 32 > 0)
+	{
+		//cout << "vector_length. " << vector_length << endl;
+		int t = bvec2int(bv, int_length * 32, false);
+		//cout << "2. " << t << endl;
+		f1.write((char *)&t, (vector_length % 32) / 8);
+	}
+	
+	f1.close();
+	return;
+}
+
+int read_file(bvec &bv, const char* s)
+{
+	FILE* pFile;
+	pFile = fopen (s, "rb");
+	
+	bvec a;
+	int i, i_read;
+	i_read = fread((char*) &i, 1, sizeof(int), pFile);
+	//cout << "i: " << i << "        i_read: " << i_read << endl;
+	while(i_read)
+	{
+		a = itpp::dec2bin(i_read * 8, i);
+		bv.ins(bv.size(), a);
+		if(i_read < 4)
+		{
+			fclose(pFile);
+			return i_read;
+		}
+		i_read = fread((char*) &i, 1, sizeof(int), pFile);
+		//cout << "i: " << i << "        i_read: " << i_read << endl;
+	}
+	fclose(pFile);
+	return 0;
+}
+
+int main(int argc, char* argv[])
+{
+	if (argc < 4) 
+	{
+        std::cerr << "Usage: " << argv[0] << " NAME" << std::endl;
+        return 1;
+    }
+    
+    if(strncmp(argv[1], "-f", 2) == 0)
+    {
+	    _f.open(argv[4]);
+    	_compare_files(argv[2], argv[3]);
+    	_f.close();
+    }
+    else if(strncmp(argv[1], "-d", 2) == 0)
+    {
+	    _f.open(argv[4]);
+    	string dir1 = string(argv[2]);
+    	string dir2 = string(argv[3]);
+		vector<string> files = vector<string>();
+
+		getdir(dir1, files, false);
+		for (unsigned int i = 0; i < files.size(); i++) 
+		{
+	
+			if(files[i].length() > 3)
+			{
+				string temp1 = dir1 + files[i];
+				string temp2 = dir2 + files[i];				
+				//cout << temp1 << endl;
+				//cout << temp2 << endl;
+				_compare_files(temp1.c_str(), temp2.c_str());
+			}
+		}
+		_f.close();
+    }
+    else{
+        _f.open(argv[3]);
+		//cout << argv[3];
+		string dir = string(argv[2]);
+		vector<string> files = vector<string>();
+
+		getdir(dir, files, true);
+
+		for (unsigned int i = 0; i < files.size(); i++) {
+			cout << files[i] << endl;
+			if(files[i][files[i].length()] != '.')
+				_compare_files(files[i].c_str(), argv[1]);
+		}
+		_f.close();
+    }
+    return 0;
+}
+
+
+int _compare_files(const char* s_file1, const char* s_file2)
+{
+	bvec f1;
+	bvec f2;
+	
+	read_file(f1, s_file1);
+	read_file(f2, s_file2);
+	cout << "here" << endl;
+	BERC berc;
+	berc.clear();
+	berc.count(f1, f2); //Count the errors.
+	
+	_f << endl << s_file1;
+	_f << " | " << s_file2 << endl;
+	_f << "BE: " << berc.get_errorrate() << endl;
+	_f << "BER: " << berc.get_errors() << endl;
+	_f << "1. " << f1 << endl;
+	_f << "2. " << f2 << endl;
+	return 0;
+}
+
+int compare_files(const char* s_file1, const char* s_file2)
+{
+    /*if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " NAME" << std::endl;
+        return 1;
+    }*/
+    
+	FILE* f1;
+	FILE* f2;
+	f1 = fopen (s_file1, "rb");
+	f2 = fopen (s_file2, "rb");
+	int i1, i2, t1, t2;
+	i1 = fread((char*) &t1, 1, sizeof(int), f1);
+	i2 = fread((char*) &t2, 1, sizeof(int), f2);
+	int count = 0;
+	int _count = 0;
+	int index = 0;
+	int file_size1 = i1;
+	int file_size2 = i2;
+	//cout << "1" << endl;
+	int temp = 0;
+	while(i1 > 0 && i2 > 0)
+	{
+		if(t1 != t2)
+		{
+			count = count + difference(t1, t2);
+			_count = _count + difference_byte(t1, t2);
+		}
+		//cout << "temp" << temp << endl;
+		if(i1 < 4)
+		{
+			//file_size1 += i1;
+			//fclose(f1);
+			fseek(f1, 0, SEEK_END);
+			file_size1 = ftell(f1);
+			fclose(f1);
+			index = 1;
+			cout << "End of file 1: " << i1 << endl;
+			break;
+		}
+		else if(i2 < 4)
+		{
+			//file_size2 += i2;
+			fseek(f2, 0, SEEK_END);
+			file_size2 = ftell(f2);
+			fclose(f2);
+			index = 2;
+			cout << "End of file 2" << endl;
+			break;
+		}
+		i1 = fread((char*) &t1, 1, sizeof(int), f1);
+		i2 = fread((char*) &t2, 1, sizeof(int), f2);
+		file_size1 += i1;
+		file_size2 += i2;
+	}
+	if(index == 1)
+	{
+		fseek(f2, 0, SEEK_END);
+		file_size2 = ftell(f2);	
+		fclose(f2);
+	}
+	else if(index == 2)
+	{
+		fseek(f1, 0, SEEK_END);
+		file_size1 = ftell(f1);	
+		fclose(f1);
+	}
+	/*fseek(f1, 0, SEEK_END);
+	file_size1 = ftell(f1);
+	fseek(f2, 0, SEEK_END);
+	file_size2 = ftell(f2);*/
+	
+	_f << endl << s_file1 << ": " << file_size1;
+	_f << " | " << s_file1 << ": " << file_size2 << endl;
+	_f << "BER: " << count << endl;
+	_f << "Byte ER: " << _count << endl;
+	return 0;
+}
+
+int difference(int a, int b)
+{
+	int c = a ^ b;
+	int temp = 0;
+	for(int i = 0; i < 32; i++)
+	{
+		if(c % 2)
+			temp++;
+		c = c >> 1;
+	}
+	return temp;
+}
+
+int difference_byte(int a, int b)
+{
+	int c = a ^ b;
+	int temp = 0;
+	for(int i = 0; i < 4; i++)
+	{
+		if(c % 256)
+			temp++;
+		c = c >> 8;
+	}
+	return temp;
+}
