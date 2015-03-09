@@ -12,5 +12,10 @@ Play raw file:
 
 Convert raw to mp3:
     sox -r 8000 -b 16 -c 1 -e signed-integer ./test.raw ./test.wav
+    
+Cut a file
+    sox test.wav 60secs.wav --show-progress trim 0 01:00
 
 Copyleft: MinhQuang NGUYEN, Telecom SudParis
+
+
