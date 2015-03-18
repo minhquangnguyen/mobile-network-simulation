@@ -1,4 +1,5 @@
 # mobile-network-simulation
+------ Cach bien dich -------
 Simulation for mobile network with: (a) Channel coding - Punctured Convolution code (b) Transfer over AWGN channel (c) Decode by Viterbi algorithm (d) Quality estimation
 You need itpp to compile it.
 I recommend you run it in Linux environment.
@@ -17,5 +18,23 @@ Cut a file
     sox test.wav 60secs.wav --show-progress trim 0 01:00
 
 Copyleft: MinhQuang NGUYEN, Telecom SudParis
+
+----- Cach su dung -----
+# Channel_source_coding
+
+quality_test [-f/-d] x y z
+
+-f
+	compare 2 files: x and y, the result is printed to file z
+-d
+	compare 2 folders: x and y, the result is printed to file z
+
+default
+	compare file x with all files in folder y, the result is printed to file z
+	
+
+	
+codeX_Y x y
+	transfer file x over AWGN channel with convolutional code, (code rate: X/Y). Receive file: y
 
 
